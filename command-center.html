@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Client Lifecycle Command Center - Aimotion</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}
+body{background:#f8f9fa;color:#111;min-height:100vh}
+
+.topbar{position:fixed;top:0;left:0;right:0;height:56px;background:#fff;border-bottom:1px solid #e5e5e5;z-index:1000;display:flex;align-items:center;padding:0 24px}
+.back-btn{display:flex;align-items:center;gap:6px;font-size:14px;color:#333;cursor:pointer;text-decoration:none;font-weight:500}
+.back-btn:hover{color:#4f46e5}
+.page-title{position:absolute;left:50%;transform:translateX(-50%);font-size:18px;font-weight:700}
+
+.main{padding-top:56px;display:flex;min-height:100vh}
+.col-left{width:300px;background:#fff;border-right:1px solid #e5e5e5;padding:24px;flex-shrink:0}
+.col-center{flex:1;padding:24px;display:flex;flex-direction:column;align-items:center;min-width:0}
+.col-right{width:340px;background:#fff;border-left:1px solid #e5e5e5;padding:24px;flex-shrink:0;overflow-y:auto;max-height:calc(100vh - 56px)}
+
+.section-title{font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px}
+
+.persona-card{border-radius:12px;padding:16px;margin-bottom:12px;cursor:pointer;transition:all 0.25s;border:2px solid transparent;position:relative;overflow:hidden}
+.persona-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,0.08)}
+.persona-card.active{border-color:#4f46e5;box-shadow:0 4px 20px rgba(79,70,229,0.15)}
+
+.persona-card.alex{background:#111;color:#fff}
+.persona-card.samantha{background:#fff;border:1px solid #e5e5e5;color:#111}
+.persona-card.samantha.active{border-color:#4f46e5}
+
+.persona-name{font-size:15px;font-weight:700;margin-bottom:4px}
+.persona-meta{font-size:11px;opacity:0.7;margin-bottom:8px}
+.persona-score{display:flex;align-items:center;gap:8px;font-size:11px;margin-bottom:4px}
+.persona-score-bar{flex:1;height:4px;background:rgba(255,255,255,0.2);border-radius:2px;overflow:hidden}
+.persona-card.samantha .persona-score-bar{background:#e5e5e5}
+.persona-score-fill{height:100%;background:#4f46e5;border-radius:2px;width:0%;transition:width 0.5s}
+.persona-cycle{font-size:11px;opacity:0.6}
+.persona-cycle span{color:#6366f1;font-weight:700}
+
+.playing-indicator{position:absolute;top:12px;right:12px;width:8px;height:8px;background:#10b981;border-radius:50%;display:none;animation:pulse 1.5s infinite}
+.persona-card.playing .playing-indicator{display:block}
+
+.try-chat-area{margin-top:20px;border:1.5px dashed #c7d2fe;border-radius:12px;padding:16px;text-align:center;cursor:pointer;transition:all 0.2s;background:#f5f7ff}
+.try-chat-area:hover{background:#eef2ff;border-color:#4f46e5}
+.try-chat-icon{width:36px;height:36px;background:#4f46e5;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:16px}
+.try-chat-title{font-size:13px;font-weight:600;margin-bottom:2px}
+.try-chat-sub{font-size:10px;color:#888}
+
+.qr-area{margin-top:12px;border:1px solid #e5e5e5;border-radius:12px;padding:16px;text-align:center}
+.qr-title{font-size:11px;color:#888;margin-bottom:10px}
+.qr-box{width:80px;height:80px;background:#333;border-radius:8px;margin:0 auto;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px}
+.qr-sub{font-size:10px;color:#aaa;margin-top:8px}
+
+.center-wrap{display:flex;gap:24px;width:100%;max-width:900px}
+
+.timeline-col{width:220px;flex-shrink:0;position:relative}
+.timeline-title{font-size:12px;font-weight:700;color:#999;margin-bottom:16px;text-transform:uppercase;letter-spacing:0.5px}
+
+.timeline-track{position:relative;padding-left:20px}
+.timeline-track::before{content:"";position:absolute;left:5px;top:0;bottom:0;width:2px;background:#e5e5e5}
+
+.timeline-item{position:relative;padding-bottom:20px;cursor:pointer;transition:all 0.2s}
+.timeline-item:last-child{padding-bottom:0}
+
+.timeline-dot{position:absolute;left:-20px;top:2px;width:12px;height:12px;border-radius:50%;border:2px solid #e5e5e5;background:#fff;z-index:2;transition:all 0.3s}
+.timeline-item.completed .timeline-dot{background:#111;border-color:#111}
+.timeline-item.current .timeline-dot{background:#4f46e5;border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,0.2)}
+.timeline-item.silent .timeline-dot{background:#f59e0b;border-color:#f59e0b}
+.timeline-item.wakeup .timeline-dot{background:#10b981;border-color:#10b981;animation:wakeupPulse 1.5s infinite}
+.timeline-item.future .timeline-dot{background:#e5e5e5;border-color:#e5e5e5}
+
+.timeline-content{padding-left:8px}
+.timeline-day{font-size:10px;font-weight:700;color:#999;margin-bottom:2px}
+.timeline-item.current .timeline-day{color:#4f46e5}
+.timeline-item.completed .timeline-day{color:#111}
+.timeline-item.silent .timeline-day{color:#f59e0b}
+.timeline-item.wakeup .timeline-day{color:#10b981}
+.timeline-item-title{font-size:12px;font-weight:600;color:#333;margin-bottom:2px}
+.timeline-item.completed .timeline-item-title{color:#111;text-decoration:line-through;opacity:0.6}
+.timeline-item.current .timeline-item-title{color:#4f46e5}
+.timeline-item.silent .timeline-item-title{color:#b45309}
+.timeline-item.wakeup .timeline-item-title{color:#059669}
+.timeline-item-desc{font-size:10px;color:#aaa;line-height:1.4}
+.timeline-item.current .timeline-item-desc{color:#666}
+
+.phone-frame{width:280px;height:520px;background:#000;border-radius:32px;position:relative;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.2);flex-shrink:0}
+.phone-notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:100px;height:24px;background:#000;border-radius:0 0 14px 14px;z-index:10}
+.phone-screen{height:100%;display:flex;flex-direction:column;background:#e5ddd5;position:relative}
+
+.wa-header{background:#075e54;padding:28px 12px 10px;display:flex;align-items:center;gap:8px}
+.wa-avatar{width:32px;height:32px;border-radius:50%;background:#6366f1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.wa-info{flex:1}
+.wa-name{color:#fff;font-size:13px;font-weight:600}
+.wa-status{color:#00d9ff;font-size:9px}
+
+.wa-chat{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column}
+.wa-encrypt{text-align:center;font-size:9px;color:#888;margin-bottom:10px;background:rgba(255,255,255,0.6);padding:4px 8px;border-radius:4px}
+
+.msg-wrap{display:flex;flex-direction:column;margin-bottom:8px;max-width:85%;animation:fadeInUp 0.3s ease}
+.msg-wrap.self{align-self:flex-end;margin-left:auto}
+.msg-bubble{padding:8px 10px;border-radius:10px;font-size:11px;line-height:1.4;word-wrap:break-word;box-shadow:0 1px 2px rgba(0,0,0,0.08)}
+.msg-them{background:#fff;border-top-left-radius:3px;color:#111}
+.msg-us{background:#dcf8c6;border-top-right-radius:3px;color:#111}
+.msg-time{font-size:8px;color:#999;text-align:right;margin-top:3px}
+
+.typing-box{align-self:flex-start;background:#fff;border-radius:10px;border-top-left-radius:3px;padding:8px 12px;margin-bottom:8px;display:none}
+.typing-dots{display:flex;gap:3px}
+.typing-dots span{width:5px;height:5px;background:#999;border-radius:50%;animation:typingBounce 1.4s ease-in-out infinite}
+.typing-dots span:nth-child(2){animation-delay:0.2s}
+.typing-dots span:nth-child(3){animation-delay:0.4s}
+
+/* Disabled input for demo mode */
+.wa-input-area{position:absolute;bottom:0;left:0;right:0;background:#f0f0f0;padding:8px;display:flex;align-items:center;gap:6px;opacity:0.5;pointer-events:none}
+.wa-input-box{flex:1;background:#fff;border-radius:18px;padding:6px 12px;font-size:12px;color:#999;border:none}
+.wa-send-btn{width:32px;height:32px;background:#999;color:#fff;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;font-size:12px}
+
+.day-badge{align-self:center;background:rgba(0,0,0,0.06);color:#666;font-size:9px;padding:3px 10px;border-radius:10px;margin:8px 0;font-weight:600}
+
+.profile-header{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.profile-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700}
+.profile-header-info{flex:1}
+.profile-name{font-size:15px;font-weight:700}
+.profile-tags{display:flex;gap:4px;margin-top:2px;flex-wrap:wrap}
+.profile-tag{font-size:9px;padding:2px 6px;border-radius:4px;background:#f0f4ff;color:#4f46e5;font-weight:600}
+.profile-contact{font-size:11px;color:#888;margin-top:2px}
+
+.profile-section{margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid #f0f0f0}
+.profile-section:last-child{border-bottom:none}
+.profile-section-title{font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px}
+
+.profile-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:12px}
+.profile-label{color:#666;font-size:11px}
+.profile-value{color:#111;font-weight:600;font-size:11px}
+.profile-value.new{animation:blueFlash 2s ease;color:#4f46e5;background:linear-gradient(90deg,rgba(79,70,229,0.1),transparent);padding:2px 6px;border-radius:4px;margin:-2px -6px}
+
+.profile-note{font-size:10px;color:#888;margin-top:6px;padding:8px;background:#fafafa;border-radius:6px;line-height:1.5}
+.profile-note.new{animation:blueFlash 2s ease;border-left:2px solid #4f46e5;background:#f0f4ff}
+
+.progress-bar{height:6px;background:#e5e5e5;border-radius:3px;overflow:hidden;margin:8px 0}
+.progress-fill{height:100%;background:linear-gradient(90deg,#4f46e5,#7c3aed);border-radius:3px;width:0%;transition:width 0.8s ease}
+.progress-text{display:flex;justify-content:space-between;font-size:10px;color:#888;margin-top:4px}
+
+.insight-item{display:flex;gap:8px;margin-bottom:8px;font-size:11px;line-height:1.5;color:#555}
+.insight-item.new{animation:blueFlash 2s ease}
+.insight-bullet{width:5px;height:5px;background:#4f46e5;border-radius:50%;margin-top:5px;flex-shrink:0}
+
+@keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes typingBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-4px)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+@keyframes wakeupPulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.4)}50%{box-shadow:0 0 0 8px rgba(16,185,129,0)}}
+@keyframes blueFlash{0%{background:transparent}20%{background:rgba(79,70,229,0.15)}100%{background:transparent}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="index.html" class="back-btn">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+    Back
+  </a>
+  <div class="page-title">Client Lifecycle Command Center</div>
+</div>
+
+<div class="main">
+  <div class="col-left">
+    <div class="section-title">Client demo</div>
+
+    <div class="persona-card alex" id="card-alex" onclick="selectPersona('alex')">
+      <div class="playing-indicator"></div>
+      <div class="persona-name">Alex Tan</div>
+      <div class="persona-meta">2026 Jetour T2 · KL</div>
+      <div class="persona-score">
+        <span>Profile Score:</span>
+        <div class="persona-score-bar"><div class="persona-score-fill" id="alex-score"></div></div>
+        <span id="alex-score-text">0%</span>
+      </div>
+      <div class="persona-cycle">Cycle: <span id="alex-cycle">30 days</span></div>
+    </div>
+
+    <div class="persona-card samantha" id="card-samantha" onclick="selectPersona('samantha')">
+      <div class="playing-indicator"></div>
+      <div class="persona-name">samantha</div>
+      <div class="persona-meta">2026 Jetour T2 · KL</div>
+      <div class="persona-score">
+        <span>Profile Score:</span>
+        <div class="persona-score-bar"><div class="persona-score-fill" id="samantha-score"></div></div>
+        <span id="samantha-score-text">0%</span>
+      </div>
+      <div class="persona-cycle">Cycle: <span id="samantha-cycle">180 days</span></div>
+    </div>
+
+    <a href="try-chat.html" target="_blank" style="text-decoration:none;display:block">
+      <div class="try-chat-area" id="try-chat-btn">
+        <div class="try-chat-icon">💬</div>
+        <div class="try-chat-title">Try chat with aimotion</div>
+        <div class="try-chat-sub">Opens in new tab for free conversation</div>
+      </div>
+    </a>
+
+    <div class="qr-area">
+      <div class="qr-title">Scan QR code to try on Whatsapp</div>
+      <div class="qr-box">QR code</div>
+      <div class="qr-sub">Aimotion Auto Demo</div>
+    </div>
+  </div>
+
+  <div class="col-center">
+    <div class="center-wrap">
+      <div class="timeline-col" id="timeline-col">
+        <div class="timeline-title">Journey Timeline</div>
+        <div class="timeline-track" id="timeline-track"></div>
+      </div>
+
+      <div class="phone-frame">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="wa-header">
+            <div class="wa-avatar" id="phone-avatar">A</div>
+            <div class="wa-info">
+              <div class="wa-name" id="phone-name">Alex from AutoMax</div>
+              <div class="wa-status">online</div>
+            </div>
+          </div>
+          <div class="wa-chat" id="wa-chat">
+            <div class="wa-encrypt">Messages are end-to-end encrypted</div>
+            <div id="chat-messages" style="display:flex;flex-direction:column"></div>
+            <div class="typing-box" id="typing-box">
+              <div class="typing-dots"><span></span><span></span><span></span></div>
+            </div>
+          </div>
+          <div class="wa-input-area">
+            <div class="wa-input-box">Type a message...</div>
+            <div class="wa-send-btn">➤</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-right" id="profile-panel">
+    <div class="profile-header">
+      <div class="profile-avatar" id="profile-avatar">A</div>
+      <div class="profile-header-info">
+        <div class="profile-name" id="profile-name">Alex Tan</div>
+        <div class="profile-tags" id="profile-tags">
+          <span class="profile-tag">Decisive</span>
+          <span class="profile-tag">Financing</span>
+          <span class="profile-tag">Jetour T2</span>
+        </div>
+        <div class="profile-contact" id="profile-contact">Contact: +6011-1234 5678</div>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <div class="profile-section-title">Personality</div>
+      <div class="profile-note" id="profile-personality">Decisive buyer with clear intent. Fast comparison → quick decision → close within 30 days.</div>
+    </div>
+
+    <div class="profile-section">
+      <div class="profile-section-title">Financial Plan</div>
+      <div class="profile-row"><span class="profile-label">Budget</span><span class="profile-value" id="p-budget">---</span></div>
+      <div class="profile-row"><span class="profile-label">Salary</span><span class="profile-value" id="p-salary">---</span></div>
+      <div class="profile-row"><span class="profile-label">Financing</span><span class="profile-value" id="p-financing">---</span></div>
+      <div class="profile-row"><span class="profile-label">Monthly Target</span><span class="profile-value" id="p-monthly">---</span></div>
+      <div class="profile-row"><span class="profile-label">Channel</span><span class="profile-value" id="p-channel">---</span></div>
+      <div class="profile-note" id="p-fin-note">---</div>
+    </div>
+
+    <div class="profile-section">
+      <div class="profile-section-title">Vehicle Preference</div>
+      <div class="profile-row"><span class="profile-label">Primary Interest</span><span class="profile-value" id="p-interest">---</span></div>
+      <div class="profile-row"><span class="profile-label">Trade-In</span><span class="profile-value" id="p-tradein">---</span></div>
+      <div class="profile-row"><span class="profile-label">Trade Note</span><span class="profile-value" id="p-tradenote">---</span></div>
+      <div class="profile-row"><span class="profile-label">Competitor</span><span class="profile-value" id="p-competitor">---</span></div>
+    </div>
+
+    <div class="profile-section">
+      <div class="profile-section-title">Journey Progress</div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="progress-text">
+        <span id="progress-cycle">Cycle: 30 days</span>
+        <span id="progress-step">Step 0 of 7</span>
+      </div>
+      <div class="progress-text" style="margin-top:2px">
+        <span id="progress-percent" style="font-weight:700;color:#4f46e5;font-size:12px">0%</span>
+      </div>
+    </div>
+
+    <div class="profile-section">
+      <div class="profile-section-title">AI Insights</div>
+      <div id="insights-list">
+        <div class="insight-item"><div class="insight-bullet"></div><div>Memory Pipeline initialized. Waiting for first signal...</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const personas = {
+  alex: {
+    name: "Alex Tan",
+    avatar: "A",
+    tags: ["Decisive", "Financing", "Jetour T2"],
+    contact: "+6011-1234 5678",
+    personality: "Decisive buyer with clear intent. Fast comparison → quick decision → close within 30 days.",
+    cycle: 30,
+    totalSteps: 7,
+    stages: [
+      {day: 1, title: "Initial Inquiry", desc: "Saw TikTok ad, asked about monthly payment", type: "normal"},
+      {day: 2, title: "WhatsApp Transition", desc: "Moved to WhatsApp for detailed discussion", type: "normal"},
+      {day: 5, title: "Model Comparison", desc: "Compared Jetour T2 vs Proton X90", type: "normal"},
+      {day: 10, title: "Financing Discussion", desc: "Tier-2 financing pre-approved", type: "normal"},
+      {day: 14, title: "Test Drive Booking", desc: "Booked Saturday slot at KL showroom", type: "normal"},
+      {day: 20, title: "Final Negotiation", desc: "Negotiated free accessories package", type: "normal"},
+      {day: 30, title: "Deal Closed", desc: "Signed agreement, delivery in 2 weeks", type: "normal"}
+    ],
+    messages: [
+      {day: 1, sender: "them", text: "Hi! Saw your TikTok ad about the Jetour T2. What is the monthly payment like?", profileUpdate: {budget: "~RM 100k", p_fin_note: "Asked about monthly payment first - financing-ready buyer"}, insight: "Intent Signal: Price-conscious but ready to commit"},
+      {day: 1, sender: "us", text: "Hi Alex! Thanks for reaching out. The Jetour T2 starts from RM 95,800. With 10% down and 7-year tenure, monthly is around RM 1,180. Would you like me to check your financing eligibility?"},
+      {day: 2, sender: "them", text: "Yes please. My salary is RM 6,200. Do I qualify for Tier-2?", profileUpdate: {salary: "RM 6,200/mo", p_fin_note: "Salary stable, can afford monthly"}, insight: "Profile Update: Salary disclosed. Tier-2 likely approved."},
+      {day: 2, sender: "us", text: "Absolutely! With your salary, you qualify for Tier-2 financing at 2.38% interest. I have submitted a pre-approval request. Should have results within 2 hours."},
+      {day: 2, sender: "them", text: "Great. Also how does it compare to the Proton X90?", profileUpdate: {p_competitor: "Compared Proton X90"}, insight: "Competitor Alert: Cross-shopping detected. Prepare comparison sheet."},
+      {day: 5, sender: "us", text: "Here is the comparison: Jetour T2 offers 2.0L turbo (190hp) vs X90 1.5L (150hp). T2 has 7-speed DCT vs X90 CVT. Safety: both 5-star ASEAN NCAP. T2 warranty: 5 years unlimited km. Price: T2 RM 95,800 vs X90 RM 123,800."},
+      {day: 5, sender: "them", text: "T2 looks like better value. Is the test drive available this weekend?", profileUpdate: {p_interest: "2026 Jetour T2 2.0", p_tradenote: "First-time buyer"}, insight: "Decision Pivot: Value perception shifted to T2. Ready for test drive."},
+      {day: 10, sender: "us", text: "Good news! Your Tier-2 financing is pre-approved for RM 95,800 at 2.38%. Monthly RM 1,180. Bank loan channel confirmed."},
+      {day: 10, sender: "them", text: "Perfect. I will bring my payslip and IC. What time Saturday?", profileUpdate: {financing: "Tier-2 Approved", monthly: "RM 1,180 target", channel: "Bank loan"}, insight: "Financing Milestone: Pre-approval secured. Buyer commitment level: HIGH."},
+      {day: 14, sender: "us", text: "Booked 10:30 AM Saturday at KL showroom. Your sales consultant is Sarah. She will prepare the T2 in Snow White for you."},
+      {day: 14, sender: "them", text: "See you Saturday. Can you throw in the leather seat cover?", profileUpdate: {p_tradein: "NO"}, insight: "Negotiation Signal: Small ask = strong buying intent. Recommend approve accessory."},
+      {day: 20, sender: "us", text: "Test drive went well! As discussed, we will include the leather seat cover + 3M tinting (worth RM 1,800) as complimentary. Final price RM 95,800 net."},
+      {day: 20, sender: "them", text: "Deal. Send me the agreement. I will sign today.", profileUpdate: {p_fin_note: "Salary stable, can afford monthly. Ready to close."}, insight: "Conversion Trigger: Verbal commitment received. Send agreement immediately."},
+      {day: 30, sender: "us", text: "Agreement signed! Welcome to the Aimotion family, Alex. Your Jetour T2 will be ready for delivery on Day 45. Your dedicated after-sales agent will contact you within 24 hours."},
+      {day: 30, sender: "them", text: "Thanks! Looking forward to it.", profileUpdate: {}, insight: "Deal Closed: 30-day cycle completed. Profile score: 100%."}
+    ]
+  },
+  samantha: {
+    name: "samantha",
+    avatar: "S",
+    tags: ["Indecisive", "Researcher", "Jetour T2"],
+    contact: "+6012-9876 5432",
+    personality: "Research-heavy buyer with vague intent. Long consideration cycle. Needs multiple touchpoints and wake-up triggers to convert.",
+    cycle: 180,
+    totalSteps: 11,
+    stages: [
+      {day: 1, title: "Initial Inquiry", desc: "Browsed website, left email for brochure", type: "normal"},
+      {day: 3, title: "WhatsApp Transition", desc: "Slow response to follow-up", type: "normal"},
+      {day: 7, title: "Model Comparison", desc: "Asked about 5 different models", type: "normal"},
+      {day: 14, title: "Financing Discussion", desc: "Concerned about down payment", type: "normal"},
+      {day: 30, title: "Test Drive Booking", desc: "Cancelled once, rescheduled", type: "normal"},
+      {day: 45, title: "Silent Period", desc: "No response for 15 days", type: "silent"},
+      {day: 60, title: "Wake-Up Trigger", desc: "Sent personalized video + promo", type: "wakeup"},
+      {day: 90, title: "Re-engagement", desc: "Replied after seeing Facebook ad", type: "normal"},
+      {day: 120, title: "Final Comparison", desc: "Narrowed to T2 vs CX-5", type: "normal"},
+      {day: 150, title: "Negotiation", desc: "Asked for extended warranty", type: "normal"},
+      {day: 180, title: "Deal Closed", desc: "Signed after 3rd showroom visit", type: "normal"}
+    ],
+    messages: [
+      {day: 1, sender: "them", text: "Hi, can you send me the brochure for Jetour T2? Also interested in T1 and other SUVs.", profileUpdate: {budget: "Undisclosed", p_fin_note: "Early stage researcher. Multiple models in consideration."}, insight: "Early Signal: Broad inquiry = not yet qualified. Need narrowing strategy."},
+      {day: 1, sender: "us", text: "Hi Samantha! Sure, I will send you the digital brochure for T2, T1, and our SUV lineup. May I ask what is your primary use case? Family or personal commute?"},
+      {day: 3, sender: "them", text: "Family use. 2 kids. Need something safe and spacious. Still comparing a few brands.", profileUpdate: {salary: "Undisclosed", p_tradenote: "Family buyer, 2 children"}, insight: "Profile Building: Family segment identified. Safety and space are key triggers."},
+      {day: 7, sender: "us", text: "Here is a family SUV comparison sheet: T2 (5-star NCAP, 7 seats, RM 95k), X90 (5-star, 6 seats, RM 123k), CX-5 (5-star, 5 seats, RM 145k). T2 offers best value for families."},
+      {day: 7, sender: "them", text: "Thanks for the sheet. I need to discuss with my husband. Will get back next week.", profileUpdate: {p_competitor: "Considering X90, CX-5"}, insight: "Stall Pattern: Decision maker not present. Need multi-party strategy."},
+      {day: 14, sender: "us", text: "Hi Samantha, following up. Any questions from your discussion? We have a weekend family test drive event where kids can experience the rear entertainment system."},
+      {day: 14, sender: "them", text: "That sounds nice. But we are worried about the 10% down payment. Can it be lower?", profileUpdate: {financing: "Down payment sensitive", p_fin_note: "Concerned about upfront cost. Offer low-downpayment plan."}, insight: "Objection Detected: Down payment barrier. Offer 5% down + higher monthly option."},
+      {day: 30, sender: "us", text: "Good news! We have a 5% down payment option for family buyers. Monthly increases by RM 80 only. Would you like to book a test drive this Saturday?"},
+      {day: 30, sender: "them", text: "Saturday is my daughter's recital. Can we do Sunday?", profileUpdate: {p_interest: "Jetour T2 (hesitant)"}, insight: "Engagement: Positive but scheduling conflict. Flexible booking needed."},
+      {day: 30, sender: "us", text: "Sunday 2 PM works perfectly. I will reserve the T2 with child seats installed for your kids to try."},
+      {day: 45, sender: "us", text: "Hi Samantha, just checking in after the test drive. Any thoughts on the T2? I am here if you have questions."},
+      {day: 60, sender: "us", text: "[VIDEO] Hi Samantha! I made a short video showing how the T2 fits two child seats + stroller in the trunk. Plus a reminder: our 0% interest promo ends this month. Watch here: [link]", profileUpdate: {p_fin_note: "Sent wake-up video + limited-time promo"}, insight: "Wake-Up Trigger: Personalized video + scarcity. Re-engagement attempt after 15-day silence."},
+      {day: 90, sender: "them", text: "Sorry for the late reply. We have been busy. The video was helpful! Is the 0% promo still on?", profileUpdate: {p_fin_note: "Re-engaged after wake-up. Interest reactivated."}, insight: "Re-engagement Success: Wake-up video worked. Buyer returned after 30-day gap."},
+      {day: 90, sender: "us", text: "No problem at all, Samantha! Yes, the 0% promo is extended until month-end. Given your family needs, shall we proceed with financing pre-approval?"},
+      {day: 120, sender: "them", text: "We narrowed it to T2 vs CX-5. The CX-5 interior feels more premium but T2 has more space. Thoughts?", profileUpdate: {p_competitor: "Narrowed: T2 vs Mazda CX-5"}, insight: "Final Comparison: Down to 2 models. Address premium vs value proposition."},
+      {day: 120, sender: "us", text: "CX-5 has a nicer interior, yes. But for family practicality: T2 has 7 seats vs CX-5 5 seats, 5-year warranty vs 3-year, and RM 50k price difference. For growing families, space wins long-term."},
+      {day: 150, sender: "them", text: "You are right. Can we get the 7-year warranty instead of 5?", profileUpdate: {financing: "0% APR + extended warranty"}, insight: "Negotiation Phase: Buyer committed to T2. Small ask = ready to close. Recommend approve."},
+      {day: 150, sender: "us", text: "I will check with my manager. For committed buyers like you, we can extend to 7 years powertrain warranty. That is an extra 2 years of peace of mind for your family."},
+      {day: 180, sender: "them", text: "Ok let us do it. My husband will come to sign this weekend.", profileUpdate: {p_tradein: "NO", p_fin_note: "Family buyer. Extended warranty sealed the deal."}, insight: "Conversion: 180-day cycle. Multiple wake-ups required. Profile complete."},
+      {day: 180, sender: "us", text: "Wonderful! I will prepare everything. Saturday 10 AM at KL showroom. Congratulations on your new T2, Samantha!"}
+    ]
+  }
+};
+
+let currentPersona = null;
+let isPlaying = false;
+let msgIndex = 0;
+let playTimer = null;
+let currentStageIndex = -1;
+
+function selectPersona(key) {
+  console.log("[selectPersona] key=" + key);
+  if (isPlaying) stopPlayback();
+
+  currentPersona = key;
+  const p = personas[key];
+
+  document.querySelectorAll('.persona-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('card-' + key).classList.add('active');
+
+  document.getElementById('phone-avatar').textContent = p.avatar;
+  document.getElementById('phone-name').textContent = p.name === 'samantha' ? 'Samantha from AutoMax' : 'Alex from AutoMax';
+
+  updateProfilePanel(p, true);
+  renderTimeline(p);
+
+  document.getElementById('chat-messages').innerHTML = '';
+  document.getElementById('typing-box').style.display = 'none';
+
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('progress-percent').textContent = '0%';
+  document.getElementById('progress-step').textContent = 'Step 0 of ' + p.totalSteps;
+  document.getElementById('progress-cycle').textContent = 'Cycle: ' + p.cycle + ' days';
+
+  document.getElementById(key + '-score').style.width = '0%';
+  document.getElementById(key + '-score-text').textContent = '0%';
+
+  msgIndex = 0;
+  currentStageIndex = -1;
+  isPlaying = true;
+  document.getElementById('card-' + key).classList.add('playing');
+
+  playNextMessage();
+}
+
+function renderTimeline(p) {
+  const track = document.getElementById('timeline-track');
+  track.innerHTML = '';
+
+  p.stages.forEach((stage, idx) => {
+    const item = document.createElement('div');
+    item.className = 'timeline-item future';
+    item.id = 'tl-' + idx;
+    item.innerHTML = `
+      <div class="timeline-dot"></div>
+      <div class="timeline-content">
+        <div class="timeline-day">Day ${stage.day < 10 ? '0'+stage.day : stage.day}</div>
+        <div class="timeline-item-title">${stage.title}</div>
+        <div class="timeline-item-desc">${stage.desc}</div>
+      </div>
+    `;
+    track.appendChild(item);
+  });
+}
+
+function updateTimelineStage(day) {
+  const p = personas[currentPersona];
+  if (!p) return;
+
+  let activeIdx = -1;
+  for (let i = 0; i < p.stages.length; i++) {
+    if (day >= p.stages[i].day) activeIdx = i;
+  }
+
+  if (activeIdx === currentStageIndex) return;
+  currentStageIndex = activeIdx;
+
+  p.stages.forEach((stage, idx) => {
+    const el = document.getElementById('tl-' + idx);
+    if (!el) return;
+
+    el.className = 'timeline-item';
+    if (stage.type === 'silent') el.classList.add('silent');
+    else if (stage.type === 'wakeup') el.classList.add('wakeup');
+
+    if (idx < activeIdx) {
+      el.classList.add('completed');
+    } else if (idx === activeIdx) {
+      el.classList.add('current');
+      setTimeout(() => el.scrollIntoView({behavior: 'smooth', block: 'center'}), 100);
+    } else {
+      el.classList.add('future');
+    }
+  });
+}
+
+function playNextMessage() {
+  if (!isPlaying || !currentPersona) return;
+  const p = personas[currentPersona];
+  if (msgIndex >= p.messages.length) {
+    stopPlayback();
+    return;
+  }
+
+  const msg = p.messages[msgIndex];
+
+  if (msg.sender === 'us') {
+    document.getElementById('typing-box').style.display = 'flex';
+    playTimer = setTimeout(() => {
+      document.getElementById('typing-box').style.display = 'none';
+      displayMessage(msg);
+      msgIndex++;
+      playTimer = setTimeout(playNextMessage, 2000);
+    }, 800);
+  } else {
+    displayMessage(msg);
+    msgIndex++;
+    playTimer = setTimeout(playNextMessage, 2500);
+  }
+}
+
+function displayMessage(msg) {
+  const box = document.getElementById('chat-messages');
+  const p = personas[currentPersona];
+
+  const dayLabel = 'Day ' + (msg.day < 10 ? '0'+msg.day : msg.day);
+  const lastBadge = box.querySelector('.day-badge:last-child');
+  if (!lastBadge || lastBadge.textContent !== dayLabel) {
+    const badge = document.createElement('div');
+    badge.className = 'day-badge';
+    badge.textContent = dayLabel;
+    box.appendChild(badge);
+  }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-wrap ' + (msg.sender === 'us' ? 'self' : '');
+  wrap.innerHTML = `
+    <div class="msg-bubble ${msg.sender === 'us' ? 'msg-us' : 'msg-them'}">
+      <div>${msg.text}</div>
+      <div class="msg-time">${msg.sender === 'us' ? 'AutoMax Agent' : p.name} · ${dayLabel}</div>
+    </div>
+  `;
+  box.appendChild(wrap);
+
+  const chat = document.getElementById('wa-chat');
+  chat.scrollTop = chat.scrollHeight;
+
+  updateTimelineStage(msg.day);
+
+  if (msg.profileUpdate) {
+    applyProfileUpdate(msg.profileUpdate);
+  }
+  if (msg.insight) {
+    addInsight(msg.insight);
+  }
+
+  const progress = Math.round((msgIndex / p.messages.length) * 100);
+  document.getElementById('progress-fill').style.width = progress + '%';
+  document.getElementById('progress-percent').textContent = progress + '%';
+
+  let step = 0;
+  for (let i = 0; i < p.stages.length; i++) {
+    if (msg.day >= p.stages[i].day) step = i + 1;
+  }
+  document.getElementById('progress-step').textContent = 'Step ' + step + ' of ' + p.totalSteps;
+
+  const score = Math.max(0, Math.round((msgIndex / p.messages.length) * 100));
+  document.getElementById(currentPersona + '-score').style.width = score + '%';
+  document.getElementById(currentPersona + '-score-text').textContent = score + '%';
+}
+
+function stopPlayback() {
+  isPlaying = false;
+  if (playTimer) clearTimeout(playTimer);
+  document.querySelectorAll('.persona-card').forEach(c => c.classList.remove('playing'));
+  document.getElementById('typing-box').style.display = 'none';
+}
+
+function updateProfilePanel(p, reset) {
+  document.getElementById('profile-avatar').textContent = p.avatar;
+  document.getElementById('profile-name').textContent = p.name;
+  document.getElementById('profile-contact').textContent = 'Contact: ' + p.contact;
+  document.getElementById('profile-personality').textContent = p.personality;
+
+  const tagsContainer = document.getElementById('profile-tags');
+  tagsContainer.innerHTML = p.tags.map(t => `<span class="profile-tag">${t}</span>`).join('');
+
+  if (reset) {
+    ['p-budget','p-salary','p-financing','p-monthly','p-channel','p-interest','p-tradein','p-tradenote','p-competitor'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.textContent = '---'; el.className = 'profile-value'; }
+    });
+    const finNote = document.getElementById('p-fin-note');
+    if (finNote) { finNote.textContent = '---'; finNote.className = 'profile-note'; }
+    document.getElementById('insights-list').innerHTML = '<div class="insight-item"><div class="insight-bullet"></div><div>Memory Pipeline initialized. Waiting for first signal...</div></div>';
+  }
+}
+
+function applyProfileUpdate(updates) {
+  const fieldMap = {
+    'budget': 'p-budget',
+    'salary': 'p-salary',
+    'financing': 'p-financing',
+    'monthly': 'p-monthly',
+    'channel': 'p-channel',
+    'p_interest': 'p-interest',
+    'p_tradein': 'p-tradein',
+    'p_tradenote': 'p-tradenote',
+    'p_competitor': 'p-competitor',
+    'p_fin_note': 'p-fin-note'
+  };
+
+  for (const [key, value] of Object.entries(updates)) {
+    const elId = fieldMap[key];
+    if (!elId) continue;
+    const el = document.getElementById(elId);
+    if (!el) continue;
+
+    el.textContent = value;
+    el.classList.add('new');
+    setTimeout(() => el.classList.remove('new'), 2000);
+  }
+}
+
+function addInsight(text) {
+  const list = document.getElementById('insights-list');
+  const item = document.createElement('div');
+  item.className = 'insight-item new';
+  item.innerHTML = `<div class="insight-bullet"></div><div>${text}</div>`;
+  list.appendChild(item);
+  setTimeout(() => item.classList.remove('new'), 2000);
+  while (list.children.length > 5) {
+    list.removeChild(list.firstChild);
+  }
+}
+
+console.log('[INIT] Command Center loaded. Auto-starting Alex persona...');
+setTimeout(function() {
+  selectPersona('alex');
+}, 300);
+</script>
+
+</body>
+</html>
